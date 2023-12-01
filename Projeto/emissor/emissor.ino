@@ -145,7 +145,6 @@ void emitirNRZ_I(String uni)
     int cont = 1;
     Serial.println("Enviando NRZ-I: ");
 
-    // Inicia a transmissão com sinal baixo (LED desligado) por convenção
     Serial.print(uni[0]);
     digitalWrite(led, 0);
     delay(500);
@@ -156,18 +155,14 @@ void emitirNRZ_I(String uni)
         cont++;
         Serial.print(uni[i]);
 
-        if (uni[i] == '0')
-        { // 0 = mantem o sinal
+        if (uni[i] == '0') { // 0 = mantem o sinal
             digitalWrite(led, aux);
             delay(500);
-        }
-        else
-        {                  // 1 = inverte o sinal
+        } else { // 1 = inverte o sinal
             aux = 1 - aux; // inverte o valor de aux (entre 0 e 1)
             digitalWrite(led, aux);
             delay(500);
-        }
-        if(cont == 8){
+        } if(cont == 8){
           cont = 0;
           Serial.println();
         }
@@ -180,27 +175,37 @@ void emitirNRZ_I(String uni)
 #define WIDTH  (8 * sizeof(uint8_t))
 #define TOPBIT (1 << (WIDTH - 1))
 
+/**
+ * @brief Função para calcular o crc 8 bits
+ *
+ * @param data
+ * @param length
+ * @return uint8_t
+ */
 uint8_t crc8(uint8_t *data, size_t length) {
   uint8_t remainder = 0;
 
   for (size_t byte = 0; byte < length; ++byte) {
-    remainder ^= data[byte];
-    for (uint8_t bit = 8; bit > 0; --bit) {
-      if (remainder & TOPBIT) {
-        remainder = (remainder << 1) ^ POLYNOMIAL;
-      } else {
+    remainder ^= data[byte]; // Operação de XOR entre valor atual do remainder e o valor atual dos bytes em data ( ela faz operação de XOR bit a bit entre os operandos)
+    for (uint8_t bit = 8; bit > 0; --bit)
+    {
+      if (remainder & TOPBIT)
+      { // Se bit mais significativo for 1
+        remainder = (remainder << 1) ^ POLYNOMIAL; // Desloca bit a esquerda e faz XOR (divisão novamente com o polinomio e o bit deslocado)
+      }
+      else
+      { // Se não for apenas desloca
         remainder = (remainder << 1);
       }
     }
-  }
-  return remainder;
+    return remainder;
 }
 
 void loop()
 {
     if (Serial.available() > 0)
     {
-        string = Serial.readString(); // Lê toda string recebida
+        string = Serial.readString();
 
         modoTrans = string[0];
         for (int i = 0; i < (string.length() - 1); i++)
@@ -208,9 +213,10 @@ void loop()
             string[i] = string[i + 1];
         }
 
-        string.trim();                        // Remove espaços desnecessários na string
-        binString = converterBinario(string); // Conversão com base na tabela tabela Ascii
+        string.trim(); // Remove espaços
+        binString = converterBinario(string);
 
+        // Converte a string para bytes (uint8_t)
         uint8_t binaryMessage[binString.length()/8];
         for (int i = 0; i < binString.length(); i += 8) {
             binaryMessage[i/8] = strtol(binString.substring(i, i+8).c_str(), NULL, 2);
@@ -219,18 +225,19 @@ void loop()
         uint8_t crc = crc8(binaryMessage, sizeof(binaryMessage));
         String crcString = "";
         crcString = crcString + String(crc, BIN);
+        // Concate bits no crc caso necessário
         for(int i=0; i<8; i++){
           if(crcString.length()<8){
             crcString = crcString + "0";
           }
         }
-        
+
         Serial.println();
         Serial.println("Mensagem para ser enviada");
         Serial.println(string);
         Serial.print("CRC: ");
         Serial.println(crcString);
-        
+
         binString = binString + crcString;
 
         if (modoTrans == 'a')
@@ -254,6 +261,5 @@ void loop()
                 Serial.println("Caractere para seleção inválido");
             }
         }
-        // Led aceso para indicar ao receptor que ele deve começar a receber informações
     }
 }
